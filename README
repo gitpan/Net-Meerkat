@@ -1,0 +1,455 @@
+NAME
+    Net::Meerkat - Perl interface to O'ReillyNet's Meerkat
+
+SYNOPSIS
+      use Net::Meerkat;
+      my $m = Net::Meerkat->new('flavor' => 'rss');
+      my $data = $m->get;
+
+      # Shortcut usage:
+      use XML::RSS;
+      my $rss = XML::RSS->new;
+      $rss->parse(Net::Meerkat->rss);
+
+DESCRIPTION
+    "Net::Meerkat" is a Perl interface to O'ReillyNet's Meerkat web service.
+    It is little more than a straightforward front-end for creating Meerkat
+    URLs and fetching the content from http://meerkat.oreillynet.com/; it
+    doesn't provide data handling methods, since Meerkat makes its data in
+    many forms, and there are already convenient modules for handling many
+    of these forms, such as RSS. See
+    http://www.oreillynet.com/lpt/a/rss/2000/05/09/meerkat_api.html for more
+    information on the Meerkat Web API.
+
+    Typical usage:
+
+      my $m = Net::Meerkat->new();
+      $m->search("perl apache");
+      $m->time("7DAY");
+      $m->flavor('rss');
+
+      my $data = $m->get();
+
+    "Net::Meerkat"'s class method shortcuts allow the same data to be
+    retrieved as follows:
+
+      my $data = Net::Meerkat->rss(search => "perl apache",
+                                   time => "1 week");
+
+METHODS
+    "Net::Meerkat" implements methods for all of the Meerkat API functions,
+    including display, query, and flavor attributes.
+
+  Net::Meerkat methods
+
+    new(%options)
+        Creates a new "Net::Meerkat" instance. Takes (name, value) pairs,
+        which will be used to populate the instance. The names can be passed
+        in any case:
+
+          my $m = Net::Meerkat->new(SEARCH_FOR => "perl",
+                                    FLAVOR => "ns3");
+
+        Known options are the same as the display-related methods (see the
+        section on "Display Properties") and query-related methods (see the
+        section on "Query Properties"), plus OUTPUT, which will be passed to
+        "get"; see the section on "get" for details about OUTPUT.
+
+    error([$error])
+        If something goes wrong, the error string will be available via the
+        "error" method:
+
+          $m->get() or die $m->error();
+
+        Errors can also be set with this metehod:
+
+          $m->error("Bad things happened");
+
+        If "error" is used to set an error, then it returns undef;
+        otherwise, it returns the error string.
+
+    url()
+        Returns the URL that will be passed to the Meerkat server, as a
+        URI-encoded string. It will not be HTML encoded; if it is to be
+        displayed in a web page, it will need to be further encoded:
+
+          use HTML::Entities;
+
+          printf '<a href="%s">', encode_entities($m->url);
+
+    get([$destination])
+        The "get" method does the hard work of talking to the server,
+        getting the data, and returning it to the caller. When called with
+        no arguments, "get" returns the results to the caller as a string:
+
+          my $data = $m->get();
+
+        However, "get" can be called with an argument, $destination, that
+        determines what will happen to the data that is returned from the
+        server. Passing "OUTPUT" to "new" is the same as specifying
+        $destination.
+
+        $destination can be one of the following:
+
+        \$string
+            If passed a reference to $string, the data is put into $string.
+
+        \@array
+            The data will be pushed onto the end of @array.
+
+        $obj
+            If $obj supports a "print" method, the data will be passed to
+            it:
+
+              $obj->print($data);
+
+        sub { ... }
+            A subroutine will be invoked with $data as the sole argument:
+
+              &$sub($data);
+
+            "&$sub" will be invoked from within an eval; if something goes
+            wrong, the error will be available via the "error" method:
+
+              $m->get(sub { ... }) or die $m->error();
+
+        IO::File->new(...), \*GLOB
+            The data will be printed to this object.
+
+        terms()
+            Returns a list of the query terms that will be passed to the
+            Meerkat server when the data is requested:
+
+              my @terms = $m->terms;
+              my $last_term = pop @terms;
+              my $term_string = join " and ", join(", ", @terms), $last_term;
+
+              print "You have added the terms $term_string.";
+
+  Query Properties
+
+    $m->search_for($query) or $m->s($query)
+        Instructs Meerkat to search for something in the story title or
+        description. The same effect as entering a search query into the
+        search box in Meerkat's standard control panel.
+
+    $m->search_what($sw) or $m->sw($sw)
+        By default, Meerkat's searches meander through story titles and
+        descriptions. This option instructs Meerkat instead to search
+        another field in particular. Currently supported are the Dublin Core
+        Metadata elements: The same effect as choosing a field to search
+        from Meerkat's standard control panel.
+
+    $m->channel($channel) or $m->c($channel)
+        Instructs Meerkat to display only a particular channel. The same
+        effect as selecting a channel from the Categories/Channels menu in
+        Meerkat's standard control panel.
+
+    $m->time_period($time) or $m->t($time)
+        How far back Meerkat should look for stories. The same effect as
+        choosing a time period from Meerkat's standard control panel.
+
+    $m->profile($profile) or $m->p($profile)
+        Restores the settings from a particular Meerkat profile, whether
+        global or yours personally. The same effect as choosing a profile to
+        restore from Meerkat's standard control panel.
+
+    $m->mob($mob) or $m->m($mob)
+        Retrieves the stories associated with a particular Mob.
+
+    $m->id($id) or $m->i($id)
+        Retrieves a particular story by id.
+
+  Display Properties
+
+    Other than the "flavor()" method, these methods all take and return
+    boolean values.
+
+    $m->flavor('$flavor')
+        The flavor of the returned data; see the section on "Meerkat
+        Flavors", above.
+
+    $m->descriptions([$bool]) or $m->_de([$bool])
+        Turn on or off story descriptions or blurlbs. You lose some of the
+        story detail, but gain a compact display for easy scanning.
+
+    $m->cateogries([$bool]) or $m->_ca([$bool])
+        Meerkat's channels are cataloged into a category hierarchy; if these
+        categories aren't useful to you, feel free to turn them off.
+
+        Note: Some Meerkat flavors (e.g., RSS) may exclude the display of
+        categories, ignoring this setting.
+
+    $m->channels([$bool]) or $m->_ch([$bool])
+        Meerkat's stories are picked up from hundreds of channels. Don't
+        really care from which channel a particular story comes from? Turn
+        the channel display off.
+
+        Note: Some Meerkat flavors (e.g., RSS) may exclude the display of
+        channels, ignoring this setting.
+
+    $m->dates([$bool]) or $m->_da([$bool])
+        When Meerkat first noticed and picked up a story.
+
+        Note: Some Meerkat flavors (e.g., RSS) may exclude the display of
+        dates, ignoring this setting.
+
+    $m->dc_metadata([$bool]) or $m->_dc([$bool])
+        Meerkat supports the RSS 1.0 Dublin Core Module, augmenting RSS's
+        standard title, link, and description with such attributes as
+        creator (author), subject, rights, language, publisher, format, and
+        so on.
+
+        Note: Some Meerkat flavors (e.g., Minimal) may exclude the display
+        of Dublin Core Metadata, ignoring this setting.
+
+  Meerkat Flavors
+
+    Meerkat's "flavors" define the format of the data returned.
+
+    $m->flavor('meerkat') or $m->meerkat()
+        Meerkat's default flavour, providing a comprehensive interface for
+        your RSS-reading convenience. This is HTML.
+
+    $m->flavor('tofeerkat') or $m->tofeerkat()
+        For those who prefer something a little lighter, the Tofeerkat
+        interface is a compact version of the default, optimized for those
+        who take full advantage of the power of Meerkat's Profiles.
+
+    $m->flavor('minimal') or $m->minimal()
+        Designed for the minimalist, Meerkat's Minimal flavour is ideal for
+        Lynx browsers, handhelds using AvantGo or the like, and wireless
+        micro-browsers.
+
+    $m->flavor('rss') or $m->rss()
+        Meerkat's RSS 0.91 flavour returns 15 stories as well-formed RSS
+        0.91.
+
+    $m->flavor('rss10') or $m->rss10()
+        Coming full-circle, returns 15 stories as RSS 1.0, ready for
+        incorporation into your web site or insertion into a database.
+        Similar to the RSS 0.91 flavour below, Meerkat's RSS 1.0 includes
+        Dublin Core Metadata via the RSS 1.0 Dublin Core module and will
+        continue to evolve, supporting any other standard modules as they
+        become available
+
+    $m->flavor('xml') or $m->xml()
+        Modeled loosely on RSS/0.91 format, the XML flavour gives you more
+        of the information Meerkat collects for each story: source,
+        category, and date. The rather simplistic DTD (Document Type
+        Description), meerkat_xml_flavour.dtd is available for your perusal.
+
+    $m->flavor('js') or $m->js()
+        Meerkat's JavaScript Source (.js) flavour is probably the most
+        exciting to Web designers with little or no programming experience.
+        If you know basic HTML, you can insert Meerkat stories right into
+        your web site with a copy and a paste.
+
+    $m->flavor('ns3') or $m->ns3()
+        An experimental implementation of Tim Berners-Lee's Notation 3
+        RDF-alike. "This is not designed as an alternative to RDF's XML
+        syntax which has the fundamental advantage that it is in XML. This
+        is an academic excercise in language designed for a human-readable
+        and scribblable language."
+
+    $m->flavor('php') or $m->php()
+        Results available a PHP serialized string.
+
+EXAMPLES, SHORTCUTS, and TIPS
+  Examples
+
+    The Meertkat API Documentation gives 4 examples; their "Net::Meerkat"
+    equivalents follow. All examples assume a fresh "Net::Meerkat" instance:
+
+      my $m = Net::Meerkat->new;
+
+    o   "Show me today's Macintosh-related stories as RSS 1.0 and go ahead
+        and include the Dublin Core Metadata."
+
+          $m->profile(1065);
+          $m->flavor("xml");
+          my $data = $m->get();
+
+        Or:
+
+          $data = $m->xml(profile => 1065);
+
+    o   "I'd like to, as simply as possible, insert the latest Wireless
+        stories into my homepage."
+
+        It's tough to apply this one directly, unless you are running
+        mod_perl or calling this from a CGI script (in which case it will be
+        easier to use a different form).
+
+        Inserting a JavaScript version (like the answer to the above
+        question suggests) using "Net::Meerkat" could be done, under
+        mod_perl:
+
+          my $data = Net::Meerkat->js(profile => 9)
+          $r->print($data);
+
+        Or even:
+
+          Net::Meerkat->js(profile => 9, OUTPUT => $r);
+
+        By passing $r as the OUTPUT parameter, "Net::Meerkat" will call it's
+        "print" method.
+
+    o   "Let's build an RSS channel devoded to Apache modules."
+
+          $m->search("mod_");
+          $m->time_period("ALL");
+          $m->flavor("rss");
+
+          $m->get("apache.html");
+
+    o   "I want to use my Palm Pilot and AvantGo to grab just the latest
+        headlines and their descriptions."
+
+          $m->categories(0);
+          $m->channel(0);
+          $m->date(0);
+          $m->flavor("minimal");
+
+    "Net::Meerkat" works very well from cron jobs; because Meerkat can
+    output so many types of data, it is ideal for creating, e.g., sidebars
+    for a personal home page:
+
+      perl -MNet::Meerkat -e 'Net::Meerkat->minimal(mob => 12345, OUTPUT => "sidebar.html")'
+
+    (Assuming that mob 12345 is a mob you created with your specific
+    interests.)
+
+    sidebar.html can then be included in your home page:
+
+      <!--#include file="sidebar.html" -->
+      Data from Meerkat last updated on <!--#flastmod file="sidebar.html" -->.
+
+    If your ISP provides PHP, for example a Sourceforge project page, a
+    similar technique can be used:
+
+      perl -MNet::Meerkat -e 'Net::Meerkat->php(mob => 12345, OUTPUT => "meerkat.php")'
+
+    The RSS or XML versions are ideal for feeding templating systems and the
+    like. For systems that can utilize XML directly via extensions, like
+    Template Toolkit, simply passing the RSS directly might be enough:
+
+      use Template;
+      use Net::Meerkat;
+
+      my $t = Template->new(\%template_options);
+      my $xml = Net::Meerkat->new(%meerkat_options, flavor => "xml");
+
+      $t->process("my.template", { meerkat_source => $xml })
+          or die $t->error();
+
+    Then my.template could use, for example, the "XML.XPath" plugin:
+
+      [% USE xp = XML.XPath(xml => meerkat_source) %]
+      [% FOREACH item = xp.findnodes('/meerkat/story') %]
+        ...
+
+    For templating systems like "HTML::Template", which don't support an
+    extension architecture, some more work will need to be done up front:
+
+      use HTML::Template;
+      use Net::Meerkat;
+      use XML::RSS;
+
+      my $t = HTML::Template->new(%template_options);
+      my $xml = Net::Meerkat->new(%meerkat_options, flavor => "rss");
+      my $rss = XML::RSS->new;
+      my @links;
+
+      $rss->parse($xml);
+
+      $t->param("channel_title" => $rss->{'channel'}->{'title'},
+                "channel_link"  => $rss->{'channel'}->{'link'});
+      for my $item (@{$rss->{'items'}}) {
+          push @links, { "title" => $item->{'title'},
+                         "link" => $item->{'link'}
+                       };
+      }
+
+      $t->param("items" => \@links);
+
+      print $t->output;
+
+    The template might look like:
+
+      <h1><a href="<tmpl_var name="channel_link">">
+          <tmpl_var name="channel_name"></a>
+      </h1>
+
+      <ul>
+      <tmpl_loop name="links">
+        <li><a href="<tmpl_var name="link">"><tmpl_var name="name"></a>
+      </tmpl_loop>
+      </ul>
+
+    Which would display an ugly but functional unordered list of items.
+    (Hey, I'm a programmer, not a designer.)
+
+  Shortcuts
+
+    There are several builtin shortcuts for common activities.
+
+    flavor-named methods
+        There are methods named after each of the available flavors
+        (currently, "meerkat", "tofeerkat", "minimal", "rss", "rss10",
+        "xml", "js", "ns3", and "php") which set the flavor and then call
+        get. In other words, these two statements are equivalent, assuming
+        that $m is an initialized Net::Meerkat object:
+
+          # 1:
+          $m->flavor("xml");
+          $content  = $m->get;
+
+          # 2:
+          $content  = $m->xml;
+
+        These are convenience methods only; internally, the second example
+        does the same as the first, but it is easier for the programmer to
+        type.
+
+        These methods are also available prefixed with "as_":
+
+          # 2a:
+          $content  = $m->as_xml;
+
+    Default actions and class methods
+        The flavor-named methods are available as class methods as well,
+        and, when called as such, optionally take the same parameters as the
+        constructor.
+
+        The quickest way to get the default stuff (with no extra parameters
+        or anything) in RSS format:
+
+          my $content = Net::Meerkat->rss;
+
+        To add parameters:
+
+          $content = Net::Meerkat->rss(mob => 4);
+
+        These class methods create objects internally and then call the
+        appropriate fetching methods, so there is no speed gain, but a
+        concise class method like this is ideal for things like cron
+        entries:
+
+          15,30,45,60 * * * * /usr/bin/perl -MNet::Meerkat -e 'Net::Meerkat->rss(OUTPUT => "/www/includes/meerkat.rss")'
+
+    Changing Meerkat Servers
+        To use a Meerkat server other than the default at
+        http://meerkat.oreillynet.com, set "$Net::Meerkat::MEERKAT_SERVER"
+        to the new servername. This would primarily be useful for testing a
+        new implementation of the server software, though, as far as I know,
+        the server side of Meerkat is not publicly available.
+
+SEE ALSO
+    the Perl manpage, the LWP::Simple manpage, the URI manpage, the
+    URI::Escape manpage, the IO::File manpage,
+    http://www.oreillynet.com/lpt/a//rss/2000/05/09/meerkat_api.html
+
+AUTHOR
+    darren chamberlain <darren@cpan.org>
+

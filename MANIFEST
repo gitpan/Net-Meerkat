@@ -1,0 +1,10 @@
+Changes
+Makefile.PL
+MANIFEST
+MANIFEST.SKIP
+Meerkat.pm
+README
+t/get.t
+t/instance.t
+t/load.t
+t/time.t
